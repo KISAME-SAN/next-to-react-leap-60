@@ -19,16 +19,18 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
+import { useClasses } from "@/hooks/useClasses";
+import { useStudents } from "@/hooks/useStudents";
 
 interface ClassItem {
   id: string;
   name: string;
   description?: string;
   capacity: number;
-  createdAt: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
 }
-
-const STORAGE_KEY = "classes";
 
 export default function ClassManagement() {
   // SEO basics
@@ -59,57 +61,37 @@ export default function ClassManagement() {
   }, []);
 
   const { toast } = useToast();
-  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const { classes, loading, createClass, updateClass, deleteClass } = useClasses();
+  const { students } = useStudents();
+  
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ClassItem | null>(null);
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      setClasses(saved);
-    } catch {
-      setClasses([]);
+  const handleCreate = async (data: Omit<ClassItem, "id" | "created_at" | "updated_at" | "user_id">) => {
+    const success = await createClass(data);
+    if (success) {
+      setCreateOpen(false);
     }
-  }, []);
-
-  const saveToStorage = (list: ClassItem[]) => {
-    setClasses(list);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   };
 
-  const handleCreate = (data: Omit<ClassItem, "id" | "createdAt">) => {
-    const item: ClassItem = {
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      ...data,
-    };
-    const updated = [...classes, item];
-    saveToStorage(updated);
-    setCreateOpen(false);
-    toast({ title: "Classe créée", description: `${item.name} a été ajoutée.` });
+  const handleUpdate = async (data: ClassItem) => {
+    const success = await updateClass(data.id, {
+      name: data.name,
+      description: data.description,
+      capacity: data.capacity
+    });
+    if (success) {
+      setEditing(null);
+    }
   };
 
-  const handleUpdate = (data: ClassItem) => {
-    const updated = classes.map((c) => (c.id === data.id ? data : c));
-    saveToStorage(updated);
-    setEditing(null);
-    toast({ title: "Classe modifiée", description: `${data.name} mise à jour.` });
-  };
-
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette classe ?")) return;
-    const updated = classes.filter((c) => c.id !== id);
-    saveToStorage(updated);
-    toast({ title: "Classe supprimée" });
+    await deleteClass(id);
   };
 
   const getStudentCount = (classId: string) => {
-    try {
-      const students = JSON.parse(localStorage.getItem("students") || "[]");
-      return students.filter((s: any) => s.classId === classId).length;
-    } catch {
-      return 0;
-    }
+    return students.filter(s => s.class_id === classId).length;
   };
 
   const stats = useMemo(() => {
@@ -204,10 +186,10 @@ export default function ClassManagement() {
                       <span className="text-muted-foreground">Élèves inscrits</span>
                       <span className="font-medium">{enrolled} élèves</span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Créée le</span>
                       <span className="font-medium">
-                        {new Date(cls.createdAt).toLocaleDateString("fr-FR")}
+                        {new Date(cls.created_at).toLocaleDateString("fr-FR")}
                       </span>
                     </div>
                   </div>
