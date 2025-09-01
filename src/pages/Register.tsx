@@ -56,25 +56,15 @@ export default function Register() {
     setError("");
 
     try {
-      const registerData = {
-        email: data.email,
-        password: data.password,
-        fullName: `${data.firstName} ${data.lastName}`,
-        schoolName: data.schoolName,
-        schoolType: data.schoolType,
-        position: data.position,
-        phone: data.phone,
-      };
-
-      const success = await registerUser(registerData);
+      const success = await registerUser(data);
       
       if (success) {
         toast({
           title: "Compte créé avec succès !",
-          description: "Vérifiez votre email pour confirmer votre compte.",
+          description: "Bienvenue dans École Manager. Votre essai gratuit de 14 jours commence maintenant.",
         });
         
-        navigate("/login");
+        navigate("/dashboard");
       } else {
         setError("Une erreur est survenue lors de la création du compte");
       }

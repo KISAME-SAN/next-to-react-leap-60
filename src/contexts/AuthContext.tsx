@@ -1,43 +1,27 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
-interface Profile {
+interface User {
   id: string;
-  user_id: string;
-  full_name?: string;
-  email?: string;
-  school_name?: string;
-  school_type?: string;
-  position?: string;
-  phone?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface User extends SupabaseUser {
-  profile?: Profile;
-}
-
-interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
-  session: Session | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: RegisterData) => Promise<boolean>;
-  logout: () => Promise<void>;
-}
-
-interface RegisterData {
   email: string;
-  password: string;
-  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  role: string;
   schoolName?: string;
   schoolType?: string;
   position?: string;
   phone?: string;
+  createdAt?: string;
+  isActive?: boolean;
+}
+
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: any) => Promise<boolean>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,127 +40,82 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Configurer le listener d'authentification AVANT de vérifier la session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session);
-        setSession(session);
+    // Vérifier si l'utilisateur est déjà connecté au chargement
+    const checkAuthStatus = () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const userData = localStorage.getItem('user');
         
-        if (session?.user) {
-          setUser(session.user as User);
-          // Charger le profil utilisateur
-          setTimeout(async () => {
-            await fetchUserProfile(session.user.id);
-          }, 0);
-        } else {
-          setUser(null);
-          setProfile(null);
+        if (token && userData) {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
         }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        // Nettoyer les données corrompues
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+      } finally {
+        setIsLoading(false);
       }
-    );
+    };
 
-    // PUIS vérifier la session existante
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        setUser(session.user as User);
-        fetchUserProfile(session.user.id);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    checkAuthStatus();
   }, []);
-
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 = pas de données
-        console.error('Error fetching profile:', error);
-        return;
-      }
-
-      if (data) {
-        setProfile(data);
-      }
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
-    }
-  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error('Login error:', error);
-        return false;
+      // Simulation d'API - à remplacer par votre vraie API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Vérification simple des credentials (à remplacer par votre logique)
+      if (email === "admin@ecole.com" && password === "password") {
+        const userData: User = {
+          id: "1",
+          email: email,
+          name: "Administrateur",
+          role: "admin"
+        };
+        
+        localStorage.setItem('auth_token', 'mock_token_123');
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        return true;
       }
-
-      return true;
+      
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       return false;
     }
   };
 
-  const register = async (userData: RegisterData): Promise<boolean> => {
+  const register = async (userData: any): Promise<boolean> => {
     try {
-      const redirectUrl = `${window.location.origin}/dashboard`;
+      // Simulation d'API - à remplacer par votre vraie API
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const { data, error } = await supabase.auth.signUp({
+      const newUser: User = {
+        id: Date.now().toString(),
         email: userData.email,
-        password: userData.password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: userData.fullName,
-          }
-        }
-      });
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        name: `${userData.firstName} ${userData.lastName}`,
+        role: "admin", // Par défaut, le créateur du compte est admin
+        schoolName: userData.schoolName,
+        schoolType: userData.schoolType,
+        position: userData.position,
+        phone: userData.phone,
+        createdAt: new Date().toISOString(),
+        isActive: true
+      };
 
-      if (error) {
-        console.error('Registration error:', error);
-        return false;
-      }
-
-      // Si l'utilisateur est créé mais pas confirmé
-      if (data.user && !data.session) {
-        // L'utilisateur doit confirmer son email
-        return true;
-      }
-
-      // Mettre à jour le profil avec les informations supplémentaires
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: userData.fullName,
-            school_name: userData.schoolName,
-            school_type: userData.schoolType,
-            position: userData.position,
-            phone: userData.phone,
-          })
-          .eq('user_id', data.user.id);
-
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-        }
-      }
-
+      localStorage.setItem('auth_token', 'mock_token_' + newUser.id);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      setUser(newUser);
       return true;
     } catch (error) {
       console.error('Registration error:', error);
@@ -184,19 +123,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = async (): Promise<void> => {
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const logout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    setUser(null);
   };
 
   const value: AuthContextType = {
     user,
-    profile,
-    session,
-    isAuthenticated: !!session && !!user,
+    isAuthenticated: !!user,
     isLoading,
     login,
     register,
