@@ -3,14 +3,17 @@ import { Button } from "@/components/ui/button";
 
 interface Student {
   id: string;
-  firstName: string;
-  lastName: string;
-  birthDate: string;
-  studentNumber?: string;
-  birthPlace?: string;
-  parentPhone: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  student_number?: string;
+  birth_place?: string;
+  parent_phone: string;
   gender: "homme" | "femme";
-  classId: string;
+  class_id: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
 }
 
 interface Class {
@@ -44,8 +47,8 @@ export default function EditStudentModal({ student, classes, onSave, onCancel }:
               <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Prénom</label>
               <input
                 type="text"
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
                 required
               />
@@ -54,8 +57,8 @@ export default function EditStudentModal({ student, classes, onSave, onCancel }:
               <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Nom</label>
               <input
                 type="text"
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
                 required
               />
@@ -67,18 +70,18 @@ export default function EditStudentModal({ student, classes, onSave, onCancel }:
               <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Date de Naissance</label>
               <input
                 type="date"
-                value={formData.birthDate}
-                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                value={formData.birth_date}
+                onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Numéro Élève</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Lieu de Naissance</label>
               <input
                 type="text"
-                value={formData.studentNumber || ""}
-                onChange={(e) => setFormData({ ...formData, studentNumber: e.target.value })}
+                value={formData.birth_place || ""}
+                onChange={(e) => setFormData({ ...formData, birth_place: e.target.value })}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
               />
             </div>
@@ -86,15 +89,27 @@ export default function EditStudentModal({ student, classes, onSave, onCancel }:
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Numéro Élève</label>
+              <input
+                type="text"
+                value={formData.student_number || ""}
+                onChange={(e) => setFormData({ ...formData, student_number: e.target.value })}
+                className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Téléphone Parent</label>
               <input
                 type="tel"
-                value={formData.parentPhone}
-                onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
+                value={formData.parent_phone}
+                onChange={(e) => setFormData({ ...formData, parent_phone: e.target.value })}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
                 required
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Genre</label>
               <select
@@ -109,23 +124,22 @@ export default function EditStudentModal({ student, classes, onSave, onCancel }:
                 <option value="femme">Femme</option>
               </select>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Classe</label>
-            <select
-              value={formData.classId}
-              onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
-              className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
-              required
-            >
-              <option value="">Sélectionner une classe</option>
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2 whitespace-nowrap">Classe</label>
+              <select
+                value={formData.class_id}
+                onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
+                className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
+                required
+              >
+                <option value="">Sélectionner une classe</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 mt-6">

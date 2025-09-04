@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useTeachers } from "@/hooks/useTeachers";
+import { useToast } from "@/hooks/use-toast";
 
-interface Teacher {
-  id: string;
+interface TeacherFormData {
   firstName: string;
   lastName: string;
   email: string;
@@ -27,7 +28,7 @@ interface Subject {
 }
 
 export default function TeacherRegistration() {
-  const [formData, setFormData] = useState<Omit<Teacher, "id">>({
+  const [formData, setFormData] = useState<TeacherFormData>({
     firstName: "",
     lastName: "",
     email: "",
@@ -45,6 +46,10 @@ export default function TeacherRegistration() {
     emergencyContact: "",
     emergencyPhone: "",
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createTeacher } = useTeachers();
+  const { toast } = useToast();
 
   const [subjects] = useState<Subject[]>([
     { id: "anglais", name: "Anglais" },
@@ -69,15 +74,9 @@ export default function TeacherRegistration() {
 
   useEffect(() => {
     document.title = "Inscription Professeurs — École Manager";
-    const savedTeachers = JSON.parse(localStorage.getItem("teachers") || "[]");
-    const numericIds = Array.isArray(savedTeachers)
-      ? savedTeachers.map((t: any) => (typeof t?.id === "string" && /^\d+$/.test(t.id) ? parseInt(t.id, 10) : -1))
-      : [];
-    const maxId = numericIds.length ? Math.max(...numericIds) : -1;
-    setNextId((isFinite(maxId) ? maxId : -1) + 1);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -92,42 +91,65 @@ export default function TeacherRegistration() {
       !formData.emergencyContact ||
       !formData.emergencyPhone
     ) {
-      setMessage("Veuillez remplir tous les champs obligatoires");
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive"
+      });
       return;
     }
 
-    const newTeacher: Teacher = {
-      id: nextId.toString(),
-      ...formData,
-    };
+    setIsSubmitting(true);
 
-    const existingTeachers = JSON.parse(localStorage.getItem("teachers") || "[]");
-    const updatedTeachers = [...existingTeachers, newTeacher];
-    localStorage.setItem("teachers", JSON.stringify(updatedTeachers));
-    setNextId((prev) => prev + 1);
+    try {
+      const success = await createTeacher({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        subject: formData.subject,
+        hire_date: formData.hireDate,
+        payment_type: formData.paymentType,
+        salary: formData.salary,
+        hourly_rate: formData.hourlyRate,
+        gender: formData.gender,
+        residence: formData.residence,
+        contact_type: formData.contactType,
+        years_experience: formData.yearsExperience,
+        nationality: formData.nationality,
+        emergency_contact: formData.emergencyContact,
+        emergency_phone: formData.emergencyPhone,
+      });
 
-
-    setMessage("Professeur inscrit avec succès!");
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      subject: "",
-      hireDate: "",
-      paymentType: "fixe",
-      salary: 0,
-      hourlyRate: 0,
-      gender: "homme",
-      residence: "",
-      contactType: "telephone",
-      yearsExperience: 0,
-      nationality: "",
-      emergencyContact: "",
-      emergencyPhone: "",
-    });
-
-    setTimeout(() => setMessage(""), 3000);
+      if (success) {
+        setFormData({
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          subject: "",
+          hireDate: "",
+          paymentType: "fixe",
+          salary: 0,
+          hourlyRate: 0,
+          gender: "homme",
+          residence: "",
+          contactType: "telephone",
+          yearsExperience: 0,
+          nationality: "",
+          emergencyContact: "",
+          emergencyPhone: "",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'inscription",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -137,31 +159,7 @@ export default function TeacherRegistration() {
           Inscription des Professeurs
         </h1>
 
-        <div className="flex justify-end mb-2">
-          <div className="w-40">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">ID (auto)</label>
-            <input
-              type="text"
-              value={nextId}
-              readOnly
-              disabled
-              className="w-full px-3 py-2 border border-input rounded-md bg-muted/40 text-foreground"
-            />
-          </div>
-        </div>
-
         <div className="bg-card rounded-lg shadow-sm p-6 md:p-8 border border-border hover-glow">
-          {message && (
-            <div
-              className={`mb-6 p-4 rounded-md border ${
-                message.includes("succès")
-                  ? "bg-green-50 text-green-700 border-green-200"
-                  : "bg-destructive/10 text-destructive border-destructive/30"
-              }`}
-            >
-              {message}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <section className="border-b border-border pb-6">
@@ -414,7 +412,9 @@ export default function TeacherRegistration() {
               </div>
             </section>
 
-            <Button type="submit" className="w-full">👨‍🏫 Inscrire le Professeur</Button>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Inscription en cours..." : "👨‍🏫 Inscrire le Professeur"}
+            </Button>
           </form>
         </div>
       </div>

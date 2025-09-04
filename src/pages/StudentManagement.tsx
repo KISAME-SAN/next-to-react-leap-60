@@ -12,50 +12,31 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  birthDate: string;
-  studentNumber?: string;
-  birthPlace?: string;
-  parentPhone: string;
-  gender: "homme" | "femme";
-  classId: string;
-}
-
-interface Class {
-  id: string;
-  name: string;
-}
+import { useStudents } from "@/hooks/useStudents";
+import { useClasses } from "@/hooks/useClasses";
 
 export default function StudentManagement() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [classes, setClasses] = useState<Class[]>([]);
+  const { students, loading: studentsLoading, updateStudent, deleteStudent } = useStudents();
+  const { classes, loading: classesLoading } = useClasses();
+  
   const [selectedClassId, setSelectedClassId] = useState("");
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [message, setMessage] = useState("");
+  const [editingStudent, setEditingStudent] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<any | null>(null);
 
   useEffect(() => {
     document.title = "Gestion des Élèves — École Manager";
-    const savedStudents = JSON.parse(localStorage.getItem("students") || "[]");
-    const savedClasses = JSON.parse(localStorage.getItem("classes") || "[]");
-    setStudents(savedStudents);
-    setClasses(savedClasses);
   }, []);
 
 const filteredStudents = useMemo(() => {
     const byClass = selectedClassId
-      ? students.filter((s) => s.classId === selectedClassId)
+      ? students.filter((s) => s.class_id === selectedClassId)
       : students;
     if (!search.trim()) return byClass;
     const q = search.toLowerCase();
     return byClass.filter((s) =>
-      [s.firstName, s.lastName, s.studentNumber ?? "", s.parentPhone].some((v) =>
+      [s.first_name, s.last_name, s.student_number ?? "", s.parent_phone].some((v) =>
         (v as string)?.toLowerCase?.().includes(q)
       )
     );
@@ -66,13 +47,20 @@ const filteredStudents = useMemo(() => {
     return cls ? cls.name : "Classe inconnue";
   };
 
-  const handleSaveEdit = (updatedStudent: Student) => {
-    const updatedStudents = students.map((s) => (s.id === updatedStudent.id ? updatedStudent : s));
-    setStudents(updatedStudents);
-    localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setEditingStudent(null);
-    setMessage("Élève modifié avec succès!");
-    setTimeout(() => setMessage(""), 3000);
+  const handleSaveEdit = async (updatedStudent: any) => {
+    const success = await updateStudent(updatedStudent.id, {
+      first_name: updatedStudent.first_name,
+      last_name: updatedStudent.last_name,
+      birth_date: updatedStudent.birth_date,
+      birth_place: updatedStudent.birth_place,
+      student_number: updatedStudent.student_number,
+      parent_phone: updatedStudent.parent_phone,
+      gender: updatedStudent.gender,
+      class_id: updatedStudent.class_id,
+    });
+    if (success) {
+      setEditingStudent(null);
+    }
   };
 
 const requestDelete = (id: string) => {
@@ -81,15 +69,13 @@ const requestDelete = (id: string) => {
     setConfirmOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!studentToDelete) return;
-    const updatedStudents = students.filter((s) => s.id !== studentToDelete.id);
-    setStudents(updatedStudents);
-    localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setMessage("Élève supprimé avec succès!");
-    setTimeout(() => setMessage(""), 3000);
-    setConfirmOpen(false);
-    setStudentToDelete(null);
+    const success = await deleteStudent(studentToDelete.id);
+    if (success) {
+      setConfirmOpen(false);
+      setStudentToDelete(null);
+    }
   };
 
   return (
@@ -97,18 +83,6 @@ const requestDelete = (id: string) => {
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">Gestion des Élèves</h1>
       </header>
-
-      {message && (
-        <div
-          className={`mb-4 p-4 rounded-md border ${
-            message.includes("succès")
-              ? "bg-green-50 text-green-700 border-green-200"
-              : "bg-destructive/10 text-destructive border-destructive/30"
-          }`}
-        >
-          {message}
-        </div>
-      )}
 
       <section className="bg-card rounded-lg shadow-sm border border-border">
         <div className="p-4 border-b border-border">
@@ -119,6 +93,7 @@ const requestDelete = (id: string) => {
                 value={selectedClassId}
                 onChange={(e) => setSelectedClassId(e.target.value)}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring bg-background"
+                disabled={classesLoading}
               >
                 <option value="">Toutes les classes</option>
                 {classes.map((cls) => (
@@ -145,7 +120,11 @@ const requestDelete = (id: string) => {
         </div>
 
         <div className="p-4">
-          {filteredStudents.length === 0 ? (
+          {studentsLoading || classesLoading ? (
+            <p className="text-muted-foreground text-center py-8">
+              Chargement des données...
+            </p>
+          ) : filteredStudents.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
               Aucun élève trouvé {selectedClassId ? "dans cette classe" : ""}.
             </p>
@@ -170,14 +149,14 @@ const requestDelete = (id: string) => {
                   {filteredStudents.map((student) => (
                     <tr key={student.id} className="border-b border-border hover:bg-muted/40">
                       <td className="py-3 px-4">{student.id}</td>
-                      <td className="py-3 px-4 font-medium text-foreground">{student.firstName}</td>
-                      <td className="py-3 px-4 font-medium text-foreground">{student.lastName}</td>
-                      <td className="py-3 px-4">{new Date(student.birthDate).toLocaleDateString("fr-FR")}</td>
+                      <td className="py-3 px-4 font-medium text-foreground">{student.first_name}</td>
+                      <td className="py-3 px-4 font-medium text-foreground">{student.last_name}</td>
+                      <td className="py-3 px-4">{new Date(student.birth_date).toLocaleDateString("fr-FR")}</td>
                       <td className="py-3 px-4 capitalize">{student.gender}</td>
                       {!selectedClassId && (
-                        <td className="py-3 px-4">{getClassName(student.classId)}</td>
+                        <td className="py-3 px-4">{getClassName(student.class_id)}</td>
                       )}
-                      <td className="py-3 px-4">{student.parentPhone}</td>
+                      <td className="py-3 px-4">{student.parent_phone}</td>
                       <td className="py-3 px-4">
                         <div className="flex gap-1">
                           <Button

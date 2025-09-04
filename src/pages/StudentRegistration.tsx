@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useClasses } from "@/hooks/useClasses";
+import { useStudents } from "@/hooks/useStudents";
+import { useToast } from "@/hooks/use-toast";
 
-interface Student {
-  id: string;
+interface StudentFormData {
   firstName: string;
   lastName: string;
   birthDate: string;
@@ -13,13 +15,8 @@ interface Student {
   classId: string;
 }
 
-interface Class {
-  id: string;
-  name: string;
-}
-
 export default function StudentRegistration() {
-  const [formData, setFormData] = useState<Omit<Student, "id">>({
+  const [formData, setFormData] = useState<StudentFormData>({
     firstName: "",
     lastName: "",
     birthDate: "",
@@ -29,23 +26,17 @@ export default function StudentRegistration() {
     gender: "homme",
     classId: "",
   });
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [message, setMessage] = useState("");
-  const [nextId, setNextId] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const { classes, loading: classesLoading } = useClasses();
+  const { createStudent } = useStudents();
+  const { toast } = useToast();
 
   useEffect(() => {
     document.title = "Inscription Élève — École Manager";
-    const savedClasses = JSON.parse(localStorage.getItem("classes") || "[]");
-    setClasses(savedClasses);
-    const savedStudents = JSON.parse(localStorage.getItem("students") || "[]");
-    const numericIds = Array.isArray(savedStudents)
-      ? savedStudents.map((s: any) => (typeof s?.id === "string" && /^\d+$/.test(s.id) ? parseInt(s.id, 10) : -1))
-      : [];
-    const maxId = numericIds.length ? Math.max(...numericIds) : -1;
-    setNextId((isFinite(maxId) ? maxId : -1) + 1);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -56,31 +47,49 @@ export default function StudentRegistration() {
       !formData.parentPhone ||
       !formData.classId
     ) {
-      setMessage("Veuillez remplir tous les champs obligatoires");
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive"
+      });
       return;
     }
 
-    const newStudent: Student = { id: nextId.toString(), ...formData };
+    setIsSubmitting(true);
 
-    const existingStudents = JSON.parse(localStorage.getItem("students") || "[]");
-    const updatedStudents = [...existingStudents, newStudent];
-    localStorage.setItem("students", JSON.stringify(updatedStudents));
-    // Met à jour l'ID suivant
-    setNextId((prev) => prev + 1);
+    try {
+      const success = await createStudent({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        birth_date: formData.birthDate,
+        birth_place: formData.birthPlace,
+        student_number: formData.studentNumber || undefined,
+        parent_phone: formData.parentPhone,
+        gender: formData.gender,
+        class_id: formData.classId,
+      });
 
-    setMessage("Élève inscrit avec succès!");
-    setFormData({
-      firstName: "",
-      lastName: "",
-      birthDate: "",
-      birthPlace: "",
-      studentNumber: "",
-      parentPhone: "",
-      gender: "homme",
-      classId: "",
-    });
-
-    setTimeout(() => setMessage(""), 3000);
+      if (success) {
+        setFormData({
+          firstName: "",
+          lastName: "",
+          birthDate: "",
+          birthPlace: "",
+          studentNumber: "",
+          parentPhone: "",
+          gender: "homme",
+          classId: "",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'inscription",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -88,31 +97,7 @@ export default function StudentRegistration() {
       <div className="w-full max-w-4xl">
         <h1 className="text-3xl font-bold mb-8 text-center">Inscription des Élèves</h1>
 
-        <div className="flex justify-end mb-2">
-          <div className="w-40">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">ID (auto)</label>
-            <input
-              type="text"
-              value={nextId}
-              readOnly
-              disabled
-              className="w-full px-3 py-2 border border-input rounded-md bg-muted/40 text-foreground"
-            />
-          </div>
-        </div>
-
         <div className="bg-card rounded-lg shadow-sm p-8 border border-border hover-glow">
-          {message && (
-            <div
-              className={`mb-6 p-4 rounded-md border ${
-                message.includes("succès")
-                  ? "bg-green-50 text-green-700 border-green-200"
-                  : "bg-destructive/10 text-destructive border-destructive/30"
-              }`}
-            >
-              {message}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -208,16 +193,20 @@ export default function StudentRegistration() {
                 required
               >
                 <option value="">Sélectionner une classe</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name}
-                  </option>
-                ))}
+                {classesLoading ? (
+                  <option disabled>Chargement...</option>
+                ) : (
+                  classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
-            <Button type="submit" className="w-full">
-              ✨ Inscrire l'Élève
+            <Button type="submit" className="w-full" disabled={isSubmitting || classesLoading}>
+              {isSubmitting ? "Inscription en cours..." : "✨ Inscrire l'Élève"}
             </Button>
           </form>
         </div>
