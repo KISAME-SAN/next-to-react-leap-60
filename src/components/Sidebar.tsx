@@ -24,12 +24,23 @@ interface MenuItem {
 }
 
 export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
+  };
+
+  const getDisplayName = () => {
+    if (profile?.full_name) return profile.full_name;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Utilisateur';
+  };
+
+  const getInitials = () => {
+    const name = getDisplayName();
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
   const menuItems: MenuItem[] = [
@@ -72,20 +83,19 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         })}
       </nav>
 
-      {/* Section utilisateur */}
       <div className="border-t border-border p-4 flex-shrink-0">
         <div className="flex items-center space-x-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary/10 text-primary">
-              {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+              {getInitials()}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
-              {user?.name || user?.email || 'Utilisateur'}
+              {getDisplayName()}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {user?.position || 'Administrateur'}
+              {profile?.position || 'Administrateur'}
             </p>
           </div>
         </div>
